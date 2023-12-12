@@ -1,4 +1,4 @@
-package socks5
+package Bavar
 
 // AuthenticationFunc Authentication interface is implemented
 type AuthenticationFunc func(cmd Command, username, password string) bool
