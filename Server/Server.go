@@ -12,6 +12,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"os"
 	"path/filepath"
@@ -392,4 +393,32 @@ func loadCAPrivateKey() *rsa.PrivateKey {
 	}
 
 	return key
+}
+
+func ReadFileDir(path string) ([]FileInfo, error) {
+	var filesInfo []FileInfo
+
+	err := filepath.WalkDir(path, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !d.IsDir() {
+			fileInfo, err := d.Info()
+			if err != nil {
+				return err
+			}
+			filesInfo = append(filesInfo, FileInfo{
+				Name: fileInfo.Name(),
+				Size: fileInfo.Size(),
+			})
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return filesInfo, nil
 }
