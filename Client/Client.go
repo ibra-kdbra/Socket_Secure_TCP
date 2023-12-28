@@ -4,6 +4,7 @@ import (
 	"crypto/cipher"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"net"
 	"time"
@@ -170,4 +171,19 @@ func (c *Client) newConnect(serverAddress string, id int) error {
 	}
 	c.conn[id] = tcpConn
 	return nil
+}
+
+// Listen for link data
+func (c *Client) receiveconn(id int) {
+	for {
+		println("I'm waiting to receive")
+		var packet tools.DataPacket
+		err := json.NewDecoder(c.conn[id]).Decode(&packet)
+		if err != nil {
+			fmt.Printf("Error reading data from server: %v\n", err)
+			break
+		}
+		// Process specific business logic based on the content of the received data packet
+		c.handleDataPacket(packet)
+	}
 }
