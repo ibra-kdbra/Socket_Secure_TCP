@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
@@ -493,4 +495,48 @@ func (c *Client) sendFile(filePath string) error {
 	}
 
 	return nil
+}
+
+// SubmmitCsr Enter the name IP to sign the certificate and give the Client his private key.
+func (c *Client) SubmmitCsr(name string) {
+	//Determine whether a private key exists
+	if _, err := os.Stat("./" + name); os.IsNotExist(err) {
+		os.Mkdir("./"+name, 0644)
+		PrivKey, err := rsa.GenerateKey(rand.Reader, 2048)
+		c.priKey = *PrivKey
+		if err != nil {
+			panic(err)
+		}
+		priPEM := new(bytes.Buffer)
+		pem.Encode(priPEM, &pem.Block{
+			Type:  "RSA PRIVATE KEY",
+			Bytes: x509.MarshalPKCS1PrivateKey(PrivKey),
+		})
+		os.WriteFile("./"+name+"/"+name+".key", priPEM.Bytes(), 0644)
+		//After saving the local private key, start transferring the certificate application
+		csrTemplate := x509.CertificateRequest{
+			Subject: pkix.Name{
+				Country:            []string{"CN"},
+				Province:           []string{"Beijing"},
+				Locality:           []string{"Beijing"},
+				Organization:       []string{"GKD"},
+				OrganizationalUnit: []string{"GKD"},
+				CommonName:         name,
+			},
+			PublicKey: PrivKey.PublicKey,
+		}
+		//Create request
+		csrByte, err := x509.CreateCertificateRequest(rand.Reader, &csrTemplate, PrivKey)
+		//Create PEM block
+		csrPEM := new(bytes.Buffer)
+		pem.Encode(csrPEM, &pem.Block{
+			Type:  "CERTIFICATE REQUEST",
+			Bytes: csrByte,
+		})
+		c.handleRequst(tools.RequestCert, csrPEM.Bytes())
+		println(csrTemplate.Subject.CommonName)
+		if err != nil {
+			panic(err)
+		}
+	}
 }
