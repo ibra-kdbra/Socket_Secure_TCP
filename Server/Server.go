@@ -422,3 +422,7 @@ func ReadFileDir(path string) ([]FileInfo, error) {
 
 	return filesInfo, nil
 }
+
+func (fi FileInfo) String() string {
+	return fmt.Sprintf("File name: %s, size: %d bytes\n", fi.Name, fi.Size)
+}
