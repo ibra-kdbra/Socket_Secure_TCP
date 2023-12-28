@@ -16,27 +16,9 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+
+	"../tools"
 )
-
-// import (
-// 	"bufio"
-// 	"crypto/aes"
-// 	"crypto/cipher"
-// 	"crypto/rand"
-// 	"crypto/rsa"
-// 	"crypto/x509"
-// 	"encoding/base64"
-// 	"encoding/json"
-// 	"encoding/pem"
-// 	"fmt"
-// 	"io"
-// 	"io/fs"
-// 	"net"
-// 	"os"
-// 	"path/filepath"
-
-// 	"../tools"
-// )
 
 const FilePath = "./File"
 
@@ -129,7 +111,7 @@ func (s *Server) handleDataPacket(conn net.Conn) {
 			//Compare whether to accept completely
 			if uint32(len(packet.Content)) != packet.Nowsize {
 				fmt.Println("Error parse CSR PEM block")
-				println("The parsed length is" + string(len(packet.Content)))
+				println("The parsed length is" + string(rune(len(packet.Content))))
 				return
 			}
 			// Parse CSR data
