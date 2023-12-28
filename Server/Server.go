@@ -352,3 +352,23 @@ func (s *Server) handleDataPacket(conn net.Conn) {
 func (s *Server) hadleRequst(flag tools.Flag, packet tools.DataPacket) {
 
 }
+
+func loadCACertificate() *x509.Certificate {
+	certPEM, err := os.ReadFile("./CA/CA.crt")
+	if err != nil {
+		return nil
+	}
+
+	block, _ := pem.Decode(certPEM)
+	if block == nil {
+		fmt.Errorf("failed to decode PEM block containing the CAcertificate")
+		return nil
+	}
+
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return nil
+	}
+
+	return cert
+}
