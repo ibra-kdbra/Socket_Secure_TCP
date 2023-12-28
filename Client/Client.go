@@ -581,3 +581,42 @@ func loadCAPrivateKey(filePath string) *rsa.PrivateKey {
 
 	return key
 }
+
+func InputBox(owner walk.Form, title, message string, fileName *string) (int, error) {
+	var dialog *walk.Dialog
+	var acceptPB, cancelPB *walk.PushButton
+	var input *walk.LineEdit
+
+	return Dialog{
+		AssignTo:      &dialog,
+		Title:         title,
+		DefaultButton: &acceptPB,
+		CancelButton:  &cancelPB,
+		MinSize:       Size{Width: 300, Height: 200},
+		Layout:        VBox{},
+		Children: []Widget{
+			Label{
+				Text: message,
+			},
+			LineEdit{
+				AssignTo: &input,
+			},
+			Composite{
+				Layout: HBox{},
+				Children: []Widget{
+					HSpacer{},
+					PushButton{
+						AssignTo:  &acceptPB,
+						Text:      "Sure",
+						OnClicked: func() { *fileName = input.Text(); dialog.Accept() },
+					},
+					PushButton{
+						AssignTo:  &cancelPB,
+						Text:      "Cancel",
+						OnClicked: func() { dialog.Cancel() },
+					},
+				},
+			},
+		},
+	}.Run(owner)
+}
