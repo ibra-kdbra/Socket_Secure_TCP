@@ -348,3 +348,7 @@ func (s *Server) handleDataPacket(conn net.Conn) {
 	}
 
 }
+
+func (s *Server) hadleRequst(flag tools.Flag, packet tools.DataPacket) {
+
+}
