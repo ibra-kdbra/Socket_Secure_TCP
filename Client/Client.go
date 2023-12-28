@@ -1,13 +1,17 @@
 package main
 
 import (
+	"crypto/aes"
 	"crypto/cipher"
+	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"net"
+	"os"
 	"time"
 	// "bytes"
 	// "crypto/aes"
@@ -290,4 +294,130 @@ func (c *Client) handleRequst(flag tools.Flag, byt []byte) error {
 	}
 
 	return nil
+}
+
+// handleDataPacket Handle incoming requests
+func (c *Client) handleDataPacket(packet tools.DataPacket) {
+
+	switch packet.Flag {
+	case tools.ReRequestCert:
+		cert, err := base64.StdEncoding.DecodeString(packet.Content)
+		if err != nil {
+			panic("Client parsing certificate error")
+		}
+		certBlock, _ := pem.Decode(cert)
+		if certBlock == nil {
+			panic("Client parsing certificate error: PEM Decoding failed")
+		}
+
+		c.myCert, err = x509.ParseCertificate(certBlock.Bytes)
+		if err != nil {
+			panic("Client parsing certificate error: Certificate parsing failed")
+		}
+
+		os.WriteFile("./"+c.name+"/"+c.name+".crt", certBlock.Bytes, 0644)
+		println("Certificate generation successful")
+	case tools.Open:
+		//What was sent was the certificate from CA
+		if packet.FileName == "cert" {
+			encryptedKeyBase64 := base64.StdEncoding.EncodeToString(c.myCert.Raw)
+			newpacket := tools.DataPacket{
+				Flag:          tools.Open,
+				FileName:      "cert",
+				PacketCount:   0,
+				CurrentPacket: 0,
+				PacketSize:    0,
+				Nowsize:       uint32(len(c.myCert.Raw)),
+				Content:       encryptedKeyBase64,
+				Signature:     "",
+			}
+			writebyte, err := json.Marshal(newpacket)
+			if err != nil {
+				panic("Failed to send certificate")
+			}
+			c.conn[1].Write(writebyte)
+			println("Certificate sent successfully")
+			_, err = c.conn[1].Write([]byte("\x1e"))
+			if err != nil {
+				panic(err)
+			}
+		}
+
+		//What was sent was a random number.
+		if packet.FileName == "key" {
+			//The generated random number is now encrypted by the client's public key and needs to be decrypted by the private key.
+			random, err := base64.StdEncoding.DecodeString(packet.Content)
+			decryptedRandomKey, err := rsa.DecryptPKCS1v15(rand.Reader, &c.priKey, random)
+			if err != nil {
+				panic("Decryption of random number failed")
+			}
+			// Create a symmetric key using decrypted random numbers
+			block, err := aes.NewCipher(decryptedRandomKey)
+			c.key = block //symmetric key
+			if err != nil {
+				panic("Failed to create symmetric key")
+			}
+			println("Symmetric key generation successful")
+			//  "finish"
+			plaintext := []byte("finish")
+			ciphertext := make([]byte, len(plaintext))
+
+			// Encryption using symmetric keys
+			stream := cipher.NewCTR(c.key, make([]byte, c.key.BlockSize()))
+			stream.XORKeyStream(ciphertext, plaintext)
+
+			// Perform the encrypted string base64 coding
+			encodedCiphertext := base64.StdEncoding.EncodeToString(ciphertext)
+
+			// create a new DataPacket, and set Content for encrypted "finish" string
+			finishPacket := tools.DataPacket{
+				Flag:          tools.Open,
+				FileName:      "finish",
+				PacketCount:   0,
+				CurrentPacket: 0,
+				PacketSize:    0,
+				Nowsize:       uint32(len(ciphertext)),
+				Content:       encodedCiphertext,
+				Signature:     "", // If a signature is required, please set it here
+			}
+			// Serialize DataPacket to JSON
+			packetBytes, err := json.Marshal(finishPacket)
+			if err != nil {
+				panic("Serialization finishPacket failed")
+			}
+			// Send "finish" message to client
+			_, err = c.conn[1].Write(packetBytes)
+			_, err = c.conn[1].Write([]byte("\x1e"))
+			if err != nil {
+				panic(err)
+			}
+			if err != nil {
+				panic("Failed to send encrypted 'finish' message")
+			}
+			println("Sending encrypted 'finish' message successfully")
+		}
+
+		if packet.FileName == "finish" {
+			println("Secure link established successfully")
+		}
+	case tools.GetFileList:
+		var fileDirWindow *walk.MainWindow
+		var fileDirEdit *walk.TextEdit
+		MainWindow{
+			AssignTo: &fileDirWindow,
+			Title:    "File Directory",
+			MinSize:  Size{Width: 400, Height: 300},
+			Layout:   VBox{},
+			Children: []Widget{
+				TextEdit{
+					AssignTo: &fileDirEdit,
+					ReadOnly: true,
+					Text:     packet.Content, // Replace with the file directory obtained from the server
+				},
+			},
+		}.Run()
+	default:
+		fmt.Println("Unknown Flag received:", packet.Flag)
+	}
+
 }
