@@ -10,8 +10,11 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"io"
+	"math"
 	"net"
 	"os"
+	"path/filepath"
 	"time"
 	// "bytes"
 	// "crypto/aes"
@@ -420,4 +423,74 @@ func (c *Client) handleDataPacket(packet tools.DataPacket) {
 		fmt.Println("Unknown Flag received:", packet.Flag)
 	}
 
+}
+
+// sendFile Send File
+func (c *Client) sendFile(filePath string) error {
+	// open a file
+	file, err := os.Open(filePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	// Get file information
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return err
+	}
+
+	// Count the number of packets
+	packetCount := uint32(math.Ceil(float64(fileInfo.Size()) / float64(tools.MaxContentSize)))
+
+	// Read the file contents one by one and send
+	for i := uint32(0); i < packetCount; i++ {
+		// Read file contents
+		buf := make([]byte, tools.MaxContentSize)
+		n, err := file.Read(buf)
+		if err != nil && err != io.EOF {
+			return err
+		}
+
+		// Encrypt file contents using symmetric key
+		blockSize := c.key.BlockSize()
+		cipherText := make([]byte, n)
+		stream := cipher.NewCTR(c.key, make([]byte, blockSize))
+		stream.XORKeyStream(cipherText, buf[:n])
+
+		// Create packet
+		packet := tools.DataPacket{
+			Flag:          tools.SendFile,
+			FileName:      filepath.Base(filePath),
+			PacketCount:   packetCount,
+			CurrentPacket: i,
+			PacketSize:    uint32(n),
+			Nowsize:       0,
+			Content:       base64.StdEncoding.EncodeToString(cipherText),
+			Signature:     "",
+		}
+
+		// The serialized packet is JSON
+		packetBytes, err := json.Marshal(packet)
+		if err != nil {
+			return err
+		}
+
+		// Send packet
+		_, err = c.conn[1].Write(packetBytes)
+		_, err = c.conn[1].Write([]byte("\x1e"))
+		if err != nil {
+			panic(err)
+		}
+		if err != nil {
+			return err
+		}
+		// Add a newline character
+		_, err = c.conn[1].Write([]byte("\x1e"))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
