@@ -540,3 +540,23 @@ func (c *Client) SubmmitCsr(name string) {
 		}
 	}
 }
+
+func loadCACertificate(filePath string) *x509.Certificate {
+	certPEM, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil
+	}
+
+	block, _ := pem.Decode(certPEM)
+	if block == nil {
+		fmt.Errorf("failed to decode PEM block containing the CAcertificate")
+		return nil
+	}
+
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return nil
+	}
+
+	return cert
+}
