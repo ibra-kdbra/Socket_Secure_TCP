@@ -560,3 +560,24 @@ func loadCACertificate(filePath string) *x509.Certificate {
 
 	return cert
 }
+
+func loadCAPrivateKey(filePath string) *rsa.PrivateKey {
+	keyPEM, err := os.ReadFile(filePath)
+	if err != nil {
+		fmt.Errorf("Don't have the CAprivate key")
+		return nil
+	}
+
+	block, _ := pem.Decode(keyPEM)
+	if block == nil {
+		fmt.Errorf("failed to decode PEM block containing the CAprivate key")
+		return nil
+	}
+
+	key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		return nil
+	}
+
+	return key
+}
