@@ -4,6 +4,7 @@ import (
 	"crypto/cipher"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -186,4 +187,107 @@ func (c *Client) receiveconn(id int) {
 		// Process specific business logic based on the content of the received data packet
 		c.handleDataPacket(packet)
 	}
+}
+
+// handleRequst  Handle client sending
+func (c *Client) handleRequst(flag tools.Flag, byt []byte) error {
+	switch flag {
+	//Request a certificate
+	case tools.RequestCert:
+		// Convert byte slice to Base64 encoded string
+		contentBase64 := base64.StdEncoding.EncodeToString(byt)
+		len := uint32(len(contentBase64))
+		packet := tools.DataPacket{
+			Flag:          tools.RequestCert,
+			FileName:      "",
+			PacketCount:   0,
+			CurrentPacket: 0,
+			PacketSize:    0,
+			Nowsize:       len,
+			Content:       contentBase64,
+			Signature:     "",
+		}
+		by, err := json.Marshal(packet)
+		if err != nil {
+			panic(err)
+		}
+		c.conn[1].Write(by)
+
+		// Add a newline character
+		_, err = c.conn[1].Write([]byte("\x1e"))
+		if err != nil {
+			panic(err)
+		}
+	// Create link certification
+	case tools.Open:
+		// Convert byte slice to Base64 encoded string
+		contentBase64 := base64.StdEncoding.EncodeToString(byt)
+		len := uint32(len(contentBase64))
+		packet := tools.DataPacket{
+			Flag:          tools.Open,
+			FileName:      "",
+			PacketCount:   0,
+			CurrentPacket: 0,
+			PacketSize:    0,
+			Nowsize:       len,
+			Content:       contentBase64,
+			Signature:     "",
+		}
+		by, err := json.Marshal(packet)
+		if err != nil {
+			panic(err)
+		}
+		c.conn[1].Write(by)
+		//Add a newline character
+		_, err = c.conn[1].Write([]byte("\x1e"))
+		if err != nil {
+			panic(err)
+		}
+	//Get file list
+	case tools.GetFileList:
+		packet := tools.DataPacket{
+			Flag:          tools.GetFileList,
+			Certname:      "",
+			FileName:      "",
+			PacketCount:   0,
+			CurrentPacket: 0,
+			PacketSize:    0,
+			Nowsize:       0,
+			Content:       "",
+			Signature:     "",
+		}
+		packetByte, err := json.Marshal(packet)
+		if err != nil {
+			panic("Serialization failed")
+		}
+		c.conn[1].Write(packetByte)
+		_, err = c.conn[1].Write([]byte("\x1e"))
+		if err != nil {
+			panic(err)
+		}
+	//Delete Files
+	case tools.DeleteFile:
+		packet := tools.DataPacket{
+			Flag:          tools.DeleteFile,
+			Certname:      "",
+			FileName:      string(byt),
+			PacketCount:   0,
+			CurrentPacket: 0,
+			PacketSize:    0,
+			Nowsize:       0,
+			Content:       "",
+			Signature:     "",
+		}
+		packetByte, err := json.Marshal(packet)
+		if err != nil {
+			panic("Serialization failed")
+		}
+		c.conn[1].Write(packetByte)
+		_, err = c.conn[1].Write([]byte("\x1e"))
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	return nil
 }
