@@ -4,7 +4,9 @@ import (
 	"crypto/cipher"
 	"crypto/rsa"
 	"crypto/x509"
+	"fmt"
 	"net"
+	"time"
 	// "bytes"
 	// "crypto/aes"
 	// "crypto/cipher"
@@ -145,4 +147,27 @@ func main() {
 		},
 	}.Run()
 
+}
+
+// newConnect long link
+func (c *Client) newConnect(serverAddress string, id int) error {
+	// Establish with server TCP connect
+
+	conn, err := net.Dial("tcp", serverAddress)
+	if err != nil {
+		return fmt.Errorf("unable to connect to server: %v", err)
+	}
+	tcpConn, ok := conn.(*net.TCPConn)
+	if !ok {
+		fmt.Println("Connection is not a *net.TCPConn")
+	}
+	// set up Keepalive
+	err = tcpConn.SetKeepAlive(true)
+	// set up Keepalive time interval (optional)
+	err = tcpConn.SetKeepAlivePeriod(30 * time.Second)
+	if err != nil {
+		fmt.Println("Error setting Keepalive period:", err)
+	}
+	c.conn[id] = tcpConn
+	return nil
 }
