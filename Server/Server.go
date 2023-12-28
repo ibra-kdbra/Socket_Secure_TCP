@@ -64,3 +64,23 @@ func main() {
 	}
 
 }
+
+// Start Initialize listener
+func (s *Server) Start(address string) (err error) {
+
+	s.listener, err = net.Listen("tcp", address)
+	if err != nil {
+		return err
+	}
+	defer s.listener.Close()
+
+	for {
+		conn, err := s.listener.Accept()
+		if err != nil {
+			fmt.Println("Error accepting connection:", err)
+			continue
+		}
+
+		go s.handleDataPacket(conn) //handle connections
+	}
+}
